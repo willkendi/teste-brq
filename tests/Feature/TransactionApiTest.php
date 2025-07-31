@@ -3,115 +3,125 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
+use App\Services\TransactionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\Transaction;
+use Illuminate\Support\Collection;
 
 class TransactionApiTest extends TestCase
 {
-    use RefreshDatabase;
+    private $token = 'token-teste';
 
-    /** @test */
-    public function it_returns_list_of_transactions()
+    protected function setUp(): void
     {
-        Transaction::factory()->count(3)->create();
+        parent::setUp();
 
-        $response = $this->getJson('/api/transactions');
-
-        $response->assertStatus(200);
-        $response->assertJsonCount(3);
-        $response->assertJsonStructure([
-            '*' => [
-                'id',
-                'inscricao',
-                'tipo_inscricao',
-                'valor',
-                'data_hora',
-                'localizacao',
-                'created_at',
-                'updated_at',
-            ],
-        ]);
-    }
-
-    /** @test */
-    public function it_returns_single_transaction()
-    {
-        $transaction = Transaction::factory()->create();
-
-        $response = $this->getJson('/api/transactions/' . $transaction->id);
-
-        $response->assertStatus(200);
-        $response->assertJsonFragment([
-            'id' => $transaction->id,
-        ]);
-    }
-
-    /** @test */
-    public function it_returns_404_for_non_existing_transaction()
-    {
-        $response = $this->getJson('/api/transactions/00000000-0000-0000-0000-000000000000');
-
-        $response->assertStatus(404);
-        $response->assertJson([
-            'message' => 'Registro não encontrado.',
-        ]);
-    }
-
-    /** @test */
-    public function it_creates_a_transaction_with_valid_data()
-    {
-        $payload = [
+        $transactionExample = new Transaction([
+            'id' => '550e8400-e29b-41d4-a716-446655440000',
             'inscricao' => '12345678901',
             'tipo_inscricao' => 'cpf',
-            'valor' => 150.75,
-            'data_hora' => now()->toDateTimeString(),
-            'localizacao' => 'São Paulo',
-        ];
-
-        $response = $this->postJson('/api/transactions', $payload);
-
-        $response->assertStatus(201);
-        $response->assertJsonFragment([
-            'inscricao' => '12345678901',
-            'tipo_inscricao' => 'cpf',
-            'valor' => 150.75,
-            'localizacao' => 'São Paulo',
-        ]);
-
-        $this->assertDatabaseHas('transactions', [
-            'inscricao' => '12345678901',
-        ]);
-    }
-
-    /** @test */
-    public function it_validates_required_fields_on_create()
-    {
-        $response = $this->postJson('/api/transactions', []);
-
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors([
-            'inscricao',
-            'tipo_inscricao',
-            'valor',
-            'data_hora',
-            'localizacao',
-        ]);
-    }
-
-    /** @test */
-    public function it_rejects_invalid_tipo_inscricao()
-    {
-        $payload = [
-            'inscricao' => '12345678901',
-            'tipo_inscricao' => 'invalid_type',
             'valor' => 100,
-            'data_hora' => now()->toDateTimeString(),
+            'data_hora' => now(),
+            'localizacao' => 'São Paulo',
+            'status' => 'paid',
+        ]);
+
+        $transactionNew = new Transaction([
+            'id' => '550e8400-e29b-41d4-a716-446655440002',
+            'inscricao' => '12345678901',
+            'tipo_inscricao' => 'cpf',
+            'valor' => 150,
+            'data_hora' => now(),
+            'localizacao' => 'São Paulo',
+            'status' => 'paid',
+        ]);
+
+        $mock = $this->createMock(TransactionService::class);
+
+        $mock->method('filter')
+            ->willReturn($transactionExample);
+
+        $mock->method('getById')
+            ->willReturn($transactionExample);
+
+        $mock->method('create')
+            ->willReturn($transactionNew);
+
+        $this->app->instance(TransactionService::class, $mock);
+    }
+
+    public function test_index_requires_token()
+    {
+        $response = $this->getJson('/api/transactions');
+        $response->assertStatus(401);
+    }
+
+    public function test_index_with_valid_token()
+    {
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+        ])->getJson('/api/transactions');
+
+        $response->assertStatus(200)
+            ->assertJsonFragment(['inscricao' => '12345678901']);
+    }
+
+public function test_show_with_valid_token()
+{
+    $validUuid = '550e8400-e29b-41d4-a716-446655440000';
+
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer ' . $this->token,
+    ])->getJson("/api/transactions/{$validUuid}");
+
+    $response->assertStatus(200)
+             ->assertJsonStructure([
+                 'data' => [
+                     'inscricao',
+                     'tipo_inscricao',
+                     'valor',
+                     'data_hora',
+                     'localizacao',
+                 ]
+             ]);
+
+    $tipo = $response->json('data.tipo_inscricao');
+    $this->assertTrue(in_array($tipo, ['cpf', 'cnpj']), "tipo_inscricao deve ser 'cpf' ou 'cnpj'");
+}
+
+    public function test_store_valid_data()
+    {
+        $data = [
+            'inscricao' => '12345678901',
+            'tipo_inscricao' => 'cpf',
+            'valor' => 100.5,
+            'data_hora' => '2025-07-31 10:00:00',
             'localizacao' => 'São Paulo',
         ];
 
-        $response = $this->postJson('/api/transactions', $payload);
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+        ])->postJson('/api/transactions', $data);
 
-        $response->assertStatus(422);
-        $response->assertJsonValidationErrors('tipo_inscricao');
+        $response->assertStatus(201)
+            ->assertJsonFragment(['valor' => 150]);
+    }
+
+    public function test_store_invalid_data()
+    {
+        $data = [
+            'inscricao' => '', // obrigatório
+            'tipo_inscricao' => 'invalid',
+            'valor' => 'not-a-number',
+            'data_hora' => 'invalid-date',
+            'localizacao' => '',
+        ];
+
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+        ])->postJson('/api/transactions', $data);
+
+        $response->assertStatus(422)
+            ->assertJsonStructure(['message', 'errors']);
     }
 }

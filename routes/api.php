@@ -2,8 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TransactionController;
+use App\Http\Middleware\CheckBearerToken;
 
-Route::apiResource('transactions', TransactionController::class);
-
-
-
+Route::middleware(CheckBearerToken::class)->group(function () {
+    Route::apiResource('transactions', TransactionController::class);
+});
