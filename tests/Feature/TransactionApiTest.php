@@ -21,7 +21,6 @@ class TransactionApiTest extends TestCase
             'inscricao' => '12345678901',
             'tipo_inscricao' => 'cpf',
             'valor' => 100,
-            'data_hora' => now(),
             'localizacao' => 'São Paulo',
             'status' => 'paid',
         ]);
@@ -31,7 +30,6 @@ class TransactionApiTest extends TestCase
             'inscricao' => '12345678901',
             'tipo_inscricao' => 'cpf',
             'valor' => 150,
-            'data_hora' => now(),
             'localizacao' => 'São Paulo',
             'status' => 'paid',
         ]);
@@ -39,7 +37,7 @@ class TransactionApiTest extends TestCase
         $mock = $this->createMock(TransactionService::class);
 
         $mock->method('filter')
-            ->willReturn($transactionExample);
+            ->willReturn(new Collection([$transactionExample, $transactionNew]));
 
         $mock->method('getById')
             ->willReturn($transactionExample);
@@ -63,31 +61,43 @@ class TransactionApiTest extends TestCase
         ])->getJson('/api/transactions');
 
         $response->assertStatus(200)
-            ->assertJsonFragment(['inscricao' => '12345678901']);
+            ->assertJsonFragment(['inscricao' => '12345678901'])
+            ->assertJsonStructure([
+                'data' => [
+                    '*' => [
+                        'id',
+                        'inscricao',
+                        'tipo_inscricao',
+                        'valor',
+                        'localizacao',
+                        'status',
+                        'motivo_risco',
+                    ],
+                ],
+            ]);
     }
 
-public function test_show_with_valid_token()
-{
-    $validUuid = '550e8400-e29b-41d4-a716-446655440000';
+    public function test_show_with_valid_token()
+    {
+        $validUuid = '550e8400-e29b-41d4-a716-446655440000';
 
-    $response = $this->withHeaders([
-        'Authorization' => 'Bearer ' . $this->token,
-    ])->getJson("/api/transactions/{$validUuid}");
+        $response = $this->withHeaders([
+            'Authorization' => 'Bearer ' . $this->token,
+        ])->getJson("/api/transactions/{$validUuid}");
 
-    $response->assertStatus(200)
-             ->assertJsonStructure([
-                 'data' => [
-                     'inscricao',
-                     'tipo_inscricao',
-                     'valor',
-                     'data_hora',
-                     'localizacao',
-                 ]
-             ]);
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'data' => [
+                    'inscricao',
+                    'tipo_inscricao',
+                    'valor',
+                    'localizacao',
+                ]
+            ]);
 
-    $tipo = $response->json('data.tipo_inscricao');
-    $this->assertTrue(in_array($tipo, ['cpf', 'cnpj']), "tipo_inscricao deve ser 'cpf' ou 'cnpj'");
-}
+        $tipo = $response->json('data.tipo_inscricao');
+        $this->assertTrue(in_array($tipo, ['cpf', 'cnpj']), "tipo_inscricao deve ser 'cpf' ou 'cnpj'");
+    }
 
     public function test_store_valid_data()
     {
@@ -95,7 +105,6 @@ public function test_show_with_valid_token()
             'inscricao' => '12345678901',
             'tipo_inscricao' => 'cpf',
             'valor' => 100.5,
-            'data_hora' => '2025-07-31 10:00:00',
             'localizacao' => 'São Paulo',
         ];
 
@@ -113,7 +122,6 @@ public function test_show_with_valid_token()
             'inscricao' => '', // obrigatório
             'tipo_inscricao' => 'invalid',
             'valor' => 'not-a-number',
-            'data_hora' => 'invalid-date',
             'localizacao' => '',
         ];
 

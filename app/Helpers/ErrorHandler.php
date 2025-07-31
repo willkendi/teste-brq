@@ -15,10 +15,6 @@ class ErrorHandler
 {
     public function render($request, Throwable $exception)
     {
-        Log::error($exception->getMessage(), [
-            'exception' => $exception,
-            'request' => $request->all(),
-        ]);
 
         if ($exception instanceof QueryException && Str::contains($exception->getMessage(), 'invalid input syntax for type uuid')) {
             return response()->json([

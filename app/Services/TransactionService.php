@@ -30,8 +30,11 @@ class TransactionService
             $data['status'] = $data['status'] ?? 'normal';
         }
 
+        $data['data_hora'] = Carbon::now('America/Sao_Paulo')->toDateTimeString();
+
         return $this->transactionRepository->create($data);
     }
+
 
     public function getById(string $id): Transaction
     {

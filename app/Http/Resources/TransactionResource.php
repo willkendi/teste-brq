@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+
 class TransactionResource extends JsonResource
 {
     /**
@@ -15,11 +16,13 @@ class TransactionResource extends JsonResource
     public function toArray($request)
     {
         return [
+            'id' => $this->id,
             'inscricao' => $this->inscricao,
             'tipo_inscricao' => $this->tipo_inscricao,
             'valor' => $this->valor,
-            'data_hora' => $this->data_hora,
             'localizacao' => $this->localizacao,
+            'status' => $this->status,
+            'motivo_risco' => $this->motivo_risco
         ];
     }
 }

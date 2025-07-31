@@ -24,10 +24,8 @@ class TransactionController extends Controller
             $filters = $request->only(['start_date', 'end_date', 'status']);
             $transactions = $this->transactionService->filter($filters);
 
-            return new TransactionResource($transactions);
+            return TransactionResource::collection($transactions);
         } catch (\Exception $e) {
-            Log::error('Erro ao listar transações: ' . $e->getMessage());
-
             return response()->json([
                 'message' => 'Erro ao buscar transações.',
             ], 500);
@@ -52,10 +50,8 @@ class TransactionController extends Controller
                 return response()->json(['message' => 'Transação não encontrada.'], 404);
             }
 
-        return new TransactionResource($transaction);
+            return new TransactionResource($transaction);
         } catch (\Exception $e) {
-            Log::error("Erro ao buscar transação com ID $id: " . $e->getMessage());
-
             return response()->json([
                 'message' => 'Erro ao buscar transação.',
             ], 500);
@@ -69,7 +65,6 @@ class TransactionController extends Controller
                 'inscricao' => 'required|string|max:14',
                 'tipo_inscricao' => 'required|in:cpf,cnpj',
                 'valor' => 'required|numeric',
-                'data_hora' => 'required|date',
                 'localizacao' => 'required|string',
             ]);
 
@@ -84,7 +79,6 @@ class TransactionController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Erro ao criar transação: ' . $e->getMessage());
 
             return response()->json([
                 'message' => 'Erro ao criar transação.',
